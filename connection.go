@@ -79,7 +79,7 @@ func (connection *redisConnection) OpenQueue(name string) Queue {
 	return queue
 }
 
-func (connection *redisConnection) CollectStats(queueList []string) Stats {
+func (connection *redisConnection) CollectStats(queueList []string) (Stats, error) {
 	return CollectStats(queueList, connection)
 }
 
@@ -88,7 +88,7 @@ func (connection *redisConnection) String() string {
 }
 
 // GetConnections returns a list of all open connections
-func (connection *redisConnection) GetConnections() []string {
+func (connection *redisConnection) GetConnections() ([]string, error) {
 	return connection.redisClient.SMembers(connectionsKey)
 }
 
@@ -101,19 +101,19 @@ func (connection *redisConnection) Check() bool {
 
 // StopHeartbeat stops the heartbeat of the connection
 // it does not remove it from the list of connections so it can later be found by the cleaner
-func (connection *redisConnection) StopHeartbeat() bool {
+func (connection *redisConnection) StopHeartbeat() error {
 	connection.heartbeatStopped = true
-	_, ok := connection.redisClient.Del(connection.heartbeatKey)
-	return ok
+	_, err := connection.redisClient.Del(connection.heartbeatKey)
+	return err
 }
 
-func (connection *redisConnection) Close() bool {
-	_, ok := connection.redisClient.SRem(connectionsKey, connection.Name)
-	return ok
+func (connection *redisConnection) Close() error {
+	_, err := connection.redisClient.SRem(connectionsKey, connection.Name)
+	return err
 }
 
 // GetOpenQueues returns a list of all open queues
-func (connection *redisConnection) GetOpenQueues() []string {
+func (connection *redisConnection) GetOpenQueues() ([]string, error) {
 	return connection.redisClient.SMembers(queuesKey)
 }
 
@@ -131,7 +131,7 @@ func (connection *redisConnection) CloseAllQueuesInConnection() error {
 }
 
 // GetConsumingQueues returns a list of all queues consumed by this connection
-func (connection *redisConnection) GetConsumingQueues() []string {
+func (connection *redisConnection) GetConsumingQueues() ([]string, error) {
 	return connection.redisClient.SMembers(connection.queuesKey)
 }
 
@@ -152,8 +152,8 @@ func (connection *redisConnection) heartbeat() {
 }
 
 func (connection *redisConnection) updateHeartbeat() bool {
-	ok := connection.redisClient.Set(connection.heartbeatKey, "1", heartbeatDuration)
-	return ok
+	err := connection.redisClient.Set(connection.heartbeatKey, "1", heartbeatDuration)
+	return err == nil
 }
 
 // hijackConnection reopens an existing connection for inspection purposes without starting a heartbeat

@@ -77,19 +77,23 @@ func NewStats() Stats {
 	}
 }
 
-func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
+func CollectStats(queueList []string, mainConnection *redisConnection) (Stats, error) {
 	stats := NewStats()
 	for _, queueName := range queueList {
 		queue := mainConnection.openQueue(queueName)
 		stats.QueueStats[queueName] = NewQueueStat(queue.ReadyCount(), queue.RejectedCount())
 	}
 
-	connectionNames := mainConnection.GetConnections()
+	connectionNames, err := mainConnection.GetConnections()
+	if err != nil {
+		return stats, err
+	}
+
 	for _, connectionName := range connectionNames {
 		connection := mainConnection.hijackConnection(connectionName)
 		connectionActive := connection.Check()
 
-		queueNames := connection.GetConsumingQueues()
+		queueNames, _ := connection.GetConsumingQueues()
 		if len(queueNames) == 0 {
 			stats.otherConnections[connectionName] = connectionActive
 			continue
@@ -97,7 +101,10 @@ func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
 
 		for _, queueName := range queueNames {
 			queue := connection.openQueue(queueName)
-			consumers := queue.GetConsumers()
+			consumers, err := queue.GetConsumers()
+			if err != nil {
+				continue
+			}
 			openQueueStat, ok := stats.QueueStats[queueName]
 			if !ok {
 				continue
@@ -110,7 +117,7 @@ func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
 		}
 	}
 
-	return stats
+	return stats, nil
 }
 
 func (stats Stats) String() string {

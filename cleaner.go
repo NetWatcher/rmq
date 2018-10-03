@@ -11,7 +11,11 @@ func NewCleaner(connection *redisConnection) *Cleaner {
 }
 
 func (cleaner *Cleaner) Clean() error {
-	connectionNames := cleaner.connection.GetConnections()
+	connectionNames, err := cleaner.connection.GetConnections()
+	if err != nil {
+		return err
+	}
+
 	for _, connectionName := range connectionNames {
 		connection := cleaner.connection.hijackConnection(connectionName)
 		if connection.Check() {
@@ -27,7 +31,11 @@ func (cleaner *Cleaner) Clean() error {
 }
 
 func (cleaner *Cleaner) CleanConnection(connection *redisConnection) error {
-	queueNames := connection.GetConsumingQueues()
+	queueNames, err := connection.GetConsumingQueues()
+	if err != nil {
+		return err
+	}
+
 	for _, queueName := range queueNames {
 		queue, ok := connection.OpenQueue(queueName).(*redisQueue)
 		if !ok {
@@ -37,8 +45,8 @@ func (cleaner *Cleaner) CleanConnection(connection *redisConnection) error {
 		cleaner.CleanQueue(queue)
 	}
 
-	if !connection.Close() {
-		return fmt.Errorf("rmq cleaner failed to close connection %s", connection)
+	if err := connection.Close(); err != nil {
+		return fmt.Errorf("rmq cleaner failed to close connection %s: %s", connection, err)
 	}
 
 	if err := connection.CloseAllQueuesInConnection(); err != nil {
@@ -50,7 +58,7 @@ func (cleaner *Cleaner) CleanConnection(connection *redisConnection) error {
 }
 
 func (cleaner *Cleaner) CleanQueue(queue *redisQueue) {
-	returned := queue.ReturnAllUnacked()
+	returned, _ := queue.ReturnAllUnacked()
 	queue.CloseInConnection()
 	_ = returned
 	// log.Printf("rmq cleaner cleaned queue %s %d", queue, returned)
