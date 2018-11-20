@@ -309,10 +309,12 @@ func (queue *redisQueue) consume() {
 func (queue *redisQueue) batchSize() int {
 	prefetchCount := len(queue.deliveryChan)
 	prefetchLimit := queue.prefetchLimit - prefetchCount
+
+	// This spams redis server and increases the load, so it was commented out
 	// TODO: ignore ready count here and just return prefetchLimit?
-	if readyCount := queue.ReadyCount(); readyCount < prefetchLimit {
-		return readyCount
-	}
+	//if readyCount := queue.ReadyCount(); readyCount < prefetchLimit {
+	//	return readyCount
+	//}
 	return prefetchLimit
 }
 
